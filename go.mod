@@ -1,3 +1,3 @@
-module github.com/tsenart/pdqselect
+module github.com/tsenart/kth
 
 go 1.22

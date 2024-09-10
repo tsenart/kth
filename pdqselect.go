@@ -1,8 +1,4 @@
-// The pdqselect package implements an adaptive selection algorithm that finds
-// the k-th smallest elements in an ordered data structure. It is based on Go's pdqsort
-// implementation, which is a hybrid sorting algorithm that combines quicksort, insertion sort,
-// heapsort and other pattern defeating techniques to achieve optimal performance on a wide range of data.
-package pdqselect
+package kth
 
 import (
 	"cmp"
@@ -10,18 +6,18 @@ import (
 	"sort"
 )
 
-// Select swaps elements in the data provided so that the first k elements
+// PDQSelect swaps elements in the data provided so that the first k elements
 // (i.e. the elements occuping indices 0, 1, ..., k-1) are the smallest k elements
 // in the data. It doesn't guarantee any particular order among the smallest k elements,
 // only that they are the smallest k elements in the data.
 //
-// Select implements Hoare's Selection Algorithm and runs in O(n) time, so it
+// PDQSelect implements Hoare's Selection Algorithm and runs in O(n) time, so it
 // is asymptotically faster than sorting or other heap-like implementations for
 // finding the smallest k elements in a data structure.
 //
 // It's an adaptation of Go's internal pdqsort implementation, which makes it adaptive
 // to bad data patterns like already sorted data, duplicate elements, and more.
-func Select(data sort.Interface, k int) {
+func PDQSelect(data sort.Interface, k int) {
 	n := data.Len()
 	if k < 1 || k > n {
 		return
@@ -29,9 +25,9 @@ func Select(data sort.Interface, k int) {
 	pdqselect(data, 0, n, k-1, bits.Len(uint(n)))
 }
 
-// Ordered is a specialized version of Select that works with slices of
+// PDQSelectOrdered is a specialized version of Select that works with slices of
 // ordered types (i.e. types that implement the cmp.Ordered interface).
-func Ordered[T cmp.Ordered](data []T, k int) {
+func PDQSelectOrdered[T cmp.Ordered](data []T, k int) {
 	n := len(data)
 	if k < 1 || k > n {
 		return
@@ -39,20 +35,20 @@ func Ordered[T cmp.Ordered](data []T, k int) {
 	pdqselectOrdered(data, 0, n, k-1, bits.Len(uint(n)))
 }
 
-// Func is a generic version of Select that allows the caller to provide
+// PDQSelectFunc is a generic version of Select that allows the caller to provide
 // a custom comparison function to determine the order of elements.
-func Func[E any](data []E, k int, cmp func(i, j E) int) {
+func PDQSelectFunc[E any](data []E, k int, less func(i, j E) bool) {
 	n := len(data)
 	if k < 1 || k > n {
 		return
 	}
-	pdqselectFunc(data, 0, n, k-1, bits.Len(uint(n)), cmp)
+	pdqselectFunc(data, 0, n, k-1, bits.Len(uint(n)), less)
 }
 
 func pdqselect(data sort.Interface, a, b, k, limit int) {
 	if k == 0 { // Fast path; just find the minimum and place it in a
 		mn := a
-		for i := a; i < b; i++ {
+		for i := a + 1; i < b; i++ {
 			if data.Less(i, mn) {
 				mn = i
 			}
@@ -247,11 +243,11 @@ func pdqselectOrdered[T cmp.Ordered](data []T, a, b, k, limit int) {
 	}
 }
 
-func pdqselectFunc[E any](data []E, a, b, k, limit int, cmp func(a, b E) int) {
+func pdqselectFunc[E any](data []E, a, b, k, limit int, less func(a, b E) bool) {
 	if k == 0 { // Fast path; just find the minimum and place it in a
 		mn := a
 		for i := a + 1; i < b; i++ {
-			if cmp(data[i], data[mn]) < 0 {
+			if less(data[i], data[mn]) {
 				mn = i
 			}
 		}
@@ -264,7 +260,7 @@ func pdqselectFunc[E any](data []E, a, b, k, limit int, cmp func(a, b E) int) {
 	if hi := b - 1; k == hi { // Fast path; just find the maximum
 		mx := a
 		for i := a + 1; i < b; i++ {
-			if cmp(data[i], data[mx]) > 0 {
+			if less(data[mx], data[i]) {
 				mx = i
 			}
 		}
@@ -285,25 +281,25 @@ func pdqselectFunc[E any](data []E, a, b, k, limit int, cmp func(a, b E) int) {
 		length := b - a
 
 		if length <= maxInsertion {
-			insertionSortCmpFunc(data, a, b, cmp)
+			insertionSortLessFunc(data, a, b, less)
 			return
 		}
 
 		// Fall back to heap select if too many bad choices were made.
 		if limit == 0 {
-			heapSelectFunc(data, a, b, k, cmp)
+			heapSelectFunc(data, a, b, k, less)
 			return
 		}
 
 		// Break patterns if the last partitioning was imbalanced
 		if !wasBalanced {
-			breakPatternsCmpFunc(data, a, b, cmp)
+			breakPatternsLessFunc(data, a, b)
 			limit--
 		}
 
-		pivot, hint := choosePivotCmpFunc(data, a, b, cmp)
+		pivot, hint := choosePivotLessFunc(data, a, b, less)
 		if hint == decreasingHint {
-			reverseRangeCmpFunc(data, a, b, cmp)
+			reverseRangeLessFunc(data, a, b)
 			// The chosen pivot was pivot-a elements after the start of the array.
 			// After reversing it is pivot-a elements before the end of the array.
 			// The idea came from Rust's implementation.
@@ -313,15 +309,15 @@ func pdqselectFunc[E any](data []E, a, b, k, limit int, cmp func(a, b E) int) {
 
 		// Check if the slice is likely already sorted
 		if wasBalanced && wasPartitioned && hint == increasingHint {
-			if partialInsertionSortCmpFunc(data, a, b, cmp) {
+			if partialInsertionSortLessFunc(data, a, b, less) {
 				return
 			}
 		}
 
 		// Probably the slice contains many duplicate elements, partition the slice into
 		// elements equal to and elements greater than the pivot.
-		if a > 0 && cmp(data[a-1], data[pivot]) >= 0 {
-			mid := partitionEqualCmpFunc(data, a, b, pivot, cmp)
+		if a > 0 && !less(data[a-1], data[pivot]) {
+			mid := partitionEqualLessFunc(data, a, b, pivot, less)
 			if k < mid {
 				return
 			}
@@ -329,7 +325,7 @@ func pdqselectFunc[E any](data []E, a, b, k, limit int, cmp func(a, b E) int) {
 			continue
 		}
 
-		mid, alreadyPartitioned := partitionCmpFunc(data, a, b, pivot, cmp)
+		mid, alreadyPartitioned := partitionLessFunc(data, a, b, pivot, less)
 		if k == mid {
 			return
 		}
@@ -392,21 +388,21 @@ func heapSelectOrdered[T cmp.Ordered](data []T, a, b, k int) {
 	data[a], data[a+k] = data[a+k], data[a]
 }
 
-func heapSelectFunc[E any](data []E, a, b, k int, cmp func(a, b E) int) {
+func heapSelectFunc[E any](data []E, a, b, k int, less func(a, b E) bool) {
 	n := b - a
 	hi := k + 1
 
 	// Build max-heap of first k elements
 	for i := k / 2; i >= 0; i-- {
-		siftDownCmpFunc(data, i, hi, a, cmp)
+		siftDownLessFunc(data, i, hi, a, less)
 	}
 
 	// Process remaining elements
 	for i := hi; i < n; i++ {
 		j := a + i
-		if cmp(data[j], data[a]) < 0 {
+		if less(data[j], data[a]) {
 			data[a], data[j] = data[j], data[a]
-			siftDownCmpFunc(data, 0, hi, a, cmp)
+			siftDownLessFunc(data, 0, hi, a, less)
 		}
 	}
 
