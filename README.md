@@ -86,34 +86,6 @@ PDQSelectFunc(users, 2, func(a, b User) bool {
 
 ![Performance Comparison](benchmark.svg)
 
-### Select your Selection Algorithm
-
-| When to use FloydRivest | When to use PDQSelect |
-|-------------------------|----------------------|
-| Random or mixed data | Data with all equal values |
-| Mostly sorted data | Reverse sorted data |
-| When maximum speed is needed | When consistent performance is needed |
-
-#### Floyd-Rivest Selection (FloydRivest)
-
-The benchmarks show FloydRivest is extremely fast, typically taking 4-6ms for 10 million elements. While it performs 70-80% slower than PDQSelect on data with all equal values, it's still fast in absolute terms (12ms vs 7ms for 10M elements).
-
-Key characteristics:
-- Fastest on random, mixed data (4ms vs 650ms for sorting)
-- Excellent on mostly sorted data (4ms vs 240ms for sorting)
-- Still reasonably fast (12ms) even in its worst case with equal values
-
-#### Pattern-Defeating Quickselect (PDQSelect)
-
-PDQSelect shows more consistent performance across all data patterns, typically taking 6-7ms for 10 million elements:
-
-Key characteristics:
-- Consistent 6-7ms performance across different patterns
-- Better handling of data where all values are equal (7ms vs 12ms)
-- Good performance on reverse sorted data
-- Never significantly worse than sorting
-- More predictable performance bounds
-
 ```
 goos: darwin
 goarch: arm64
