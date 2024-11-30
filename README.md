@@ -82,54 +82,37 @@ PDQSelectFunc(users, 2, func(a, b User) bool {
 })
 ```
 
-## Select your Selection Algorithm
-
-| When to use FloydRivest | When to use PDQSelect |
-|-------------------------|----------------------|
-| Random or uniform data | Unknown or varying data patterns |
-| Peak performance needed | Consistent performance needed |
-| Known data distribution | Variable data distributions |
-| Can handle poor cases | Need worst-case protection |
-| Raw speed over consistency | Consistency over raw speed |
-
-### Floyd-Rivest Selection (FloydRivest)
-
-Floyd-Rivest is an optimized variant of quickselect that excels at finding selections in random or nearly-random data distributions, regardless of k.
-
-Key characteristics:
-- Uses sampling to estimate the optimal pivot
-- Recursively partitions only the relevant subset containing k
-- Best theoretical complexity of O(n) with very low constant factors
-- Can perform poorly on pathological cases (e.g., constant data)
-
-Best used when:
-- Data is randomly distributed
-- Peak performance is more important than worst-case protection
-- Performance on random data is critical
-- Data distribution is known to not have duplicates
-
-### Pattern-Defeating Quickselect (PDQSelect)
-
-PDQSelect is based on pdqsort (pattern-defeating quicksort) which is Go's sorting algorithm, but modified to only sort what's needed for selection. It provides consistent performance across different data patterns and selection sizes.
-
-Key characteristics:
-- Adapts its strategy based on detected patterns
-- Handles duplicates efficiently using three-way partitioning
-- Falls back to heapselect for pathological cases
-- More consistent performance across different data patterns
-- Slightly higher overhead on random data compared to FloydRivest
-
-Best used when:
-- Data patterns are unknown or variable
-- Consistency is more important than peak performance
-- Data may contain patterns or duplicates
-- Protection against worst-case scenarios is needed
-
 ## Benchmarks
 
 ![Performance Comparison](benchmark.svg)
 
-`kth` significantly outperforms standard library's `slices.Sort` followed by indexing for selecting k-th elements, especially for large datasets:
+### Select your Selection Algorithm
+
+| When to use FloydRivest | When to use PDQSelect |
+|-------------------------|----------------------|
+| Random or mixed data | Data with all equal values |
+| Mostly sorted data | Reverse sorted data |
+| When maximum speed is needed | When consistent performance is needed |
+
+#### Floyd-Rivest Selection (FloydRivest)
+
+The benchmarks show FloydRivest is extremely fast, typically taking 4-6ms for 10 million elements. While it performs 70-80% slower than PDQSelect on data with all equal values, it's still fast in absolute terms (12ms vs 7ms for 10M elements).
+
+Key characteristics:
+- Fastest on random, mixed data (4ms vs 650ms for sorting)
+- Excellent on mostly sorted data (4ms vs 240ms for sorting)
+- Still reasonably fast (12ms) even in its worst case with equal values
+
+#### Pattern-Defeating Quickselect (PDQSelect)
+
+PDQSelect shows more consistent performance across all data patterns, typically taking 6-7ms for 10 million elements:
+
+Key characteristics:
+- Consistent 6-7ms performance across different patterns
+- Better handling of data where all values are equal (7ms vs 12ms)
+- Good performance on reverse sorted data
+- Never significantly worse than sorting
+- More predictable performance bounds
 
 ```
 goos: darwin
